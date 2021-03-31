@@ -94,7 +94,7 @@ tg_post_msg "<b>MetaLava is building rn</b>" "$CHATID"
 
 make_rom(){
 tg_post_msg "<b>SSOS CI Build Triggered for Ysl</b>" "$CHATID"
-                make bacon -j14
+                make bacon -j13
 url=$(up out/target/product/ysl/*zip)
 	echo " "
 	echo "$url"
