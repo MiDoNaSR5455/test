@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# Lets see machine specifications and environments
+
+df -h
+
+free -h
+
+nproc
+
+cat /etc/os*
+
+env
+
+# Telgram env setup
+
+export BOT_MSG_URL="https://api.telegram.org/bot$API_BOT/sendMessage"
+
+export BOT_BUILD_URL="https://api.telegram.org/bot$API_BOT/sendDocument"
+
+tg_post_msg() {
+
+        curl -s -X POST "$BOT_MSG_URL" -d chat_id="$2" \
+
+        -d "parse_mode=html" \
+
+        -d text="$1"
+
+}
+
+tg_post_msg "<b>Downloading ccache</b>" "$CHATID"
+
+url=https://server.nippon.workers.dev/ccache/mido/ccache.tar.gz
+
+cd /tmp # Where to download cccahe
+
+time aria2c $url -x16 -s50 || time aria2c $url -x16 -s50
+
+time tar xf ccache.tar.gz
+
+find ccache.tar.gz -delete
+
+
+BRANCH=android_11
+
+mkdir -p /tmp/rom
+cd /tmp/rom
+
+# Repo init command, that -device,-mips,-darwin,-notdefault part will save you more time and storage to sync, add more according to your rom and choice. Optimization is welcomed! Let's make it quit, and with depth=1 so that no unnecessary things.
+repo init --no-repo-verify --depth=1 -u "$MANIFEST" -b "$BRANCH" -g default,-device,-mips,-darwin,-notdefault
+git config --global user.name MiDoNaSR545
+git config --global user.email ahmednasr1973913@gmail.com
+
+# Sync source with -q, no need unnecessary messages, you can remove -q if want! try with -j30 first, if fails, it will try again with -j8
+repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc --all) || repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j16
+
+# Sync stuffs
+find hardware/qcom-caf/msm8996/display hardware/qcom-caf/msm8996/audio hardware/qcom-caf/msm8996/media vendor/codeaurora/telephony .repo/ -delete
+git clone https://github.com/wave-project/vendor_codeaurora_telephony --depth=1 --single-branch vendor/codeaurora/telephony/
+git clone --single-branch https://github.com/Jabiyeff/android_hardware_qcom_media hardware/qcom-caf/msm8996/media
+git clone --single-branch https://github.com/Jabiyeff/android_hardware_qcom_display hardware/qcom-caf/msm8996/display
+git clone https://github.com/LineageOS/android_hardware_qcom_audio --single-branch -b lineage-18.1-caf-msm8996 hardware/qcom-caf/msm8996/audio
+git clone https://github.com/MiDoNaSR545/android_device_xiaomi_ysl.git --depth=1 -b r11.0 device/xiaomi/ysl
+git clone https://github.com/Hatsune71/vendor_ysl --depth=1 --single-branch vendor/xiaomi/ysl
+git clone https://github.com/stormbreaker-project/kernel_xiaomi_ysl.git --depth=1 -b eleven kernel/xiaomi/ysl
+
+rm -rf .repo & # lets remove unnecessary things, so that no storage issue can occur
+
+# Normal build steps
+. build/envsetup.sh
+lunch ssos_ysl-userdebug
+export SELINUX_IGNORE_NEVERALLOWS=true
+export BUILD_BROKEN_DUP_RULES=true
+export ALLOW_MISSING_DEPENDENCIES=true
+export CCACHE_DIR=/tmp/ccache
+export CCACHE_EXEC=$(which ccache)
+export USE_CCACHE=1
+ccache -M 25G
+ccache -o compression=true
+ccache -z
+
+# stuffs
+up(){
+	curl --upload-file $1 https://transfer.sh/
+}
+
+make_metalava(){
+tg_post_msg "<b>MetaLava is building rn</b>" "$CHATID"
+	make api-stubs-docs
+	make hiddenapi-lists-docs
+	make system-api-stubs-docs
+	make test-api-stubs-docs
+}
+
+make_rom(){
+tg_post_msg "<b>SSOS CI Build Triggered for Ysl</b>" "$CHATID"
+                make bacon -j14
+url=$(up out/target/product/ysl/*zip)
+	echo " "
+	echo "$url"
+	tg_post_msg "<b>Build Completed</b>%0A%0A<b>Link : </b> <code>"$url"</code>" "$CHATID"
+}
+make_metalava
+make_rom
+
+
